@@ -815,7 +815,7 @@ class AlpacaData(Data):
                         end: tp.DatetimeLike = 'now UTC',
                         adjustment: tp.Optional[str] = 'all',
                         limit: int = 500,
-                        exchange: tp.Optional[str] = 'CBSE',
+                        feed: tp.Optional[str] = 'IEX',
                         **kwargs) -> tp.Frame:
         """Download the symbol.
 
@@ -839,66 +839,94 @@ class AlpacaData(Data):
 
                 Allowed are `raw`, `split`, `dividend` or `all`.
             limit (int): The maximum number of returned items.
-            exchange (str): For crypto symbols. Which exchange you wish to retrieve data from.
 
-                Allowed are `FTX`, `ERSX`, `CBSE`
+            feed (str): Based on Alpaca subscription plan, your feed can be specified as `IEX` or `SIP'.
+
+            kwargs (dict): kwargs passed to Alpaca Stock or Crypto client instantiation.
 
         For defaults, see `data.alpaca` in `vectorbt._settings.settings`.
         """
         from vectorbt._settings import settings
-        from alpaca_trade_api.rest import TimeFrameUnit, TimeFrame, REST
+        from alpaca.data.historical import StockHistoricalDataClient, CryptoHistoricalDataClient
+        from alpaca.data.requests import StockBarsRequest, CryptoBarsRequest
+        from alpaca.data.timeframe import TimeFrame, TimeFrameUnit
+        from alpaca.data.enums import Adjustment
 
+        # pull alpaca data download cfg
         alpaca_cfg = settings['data']['alpaca']
 
-        client_kwargs = dict()
-        for k in get_func_kwargs(REST):
-            if k in kwargs:
-                client_kwargs[k] = kwargs.pop(k)
+        # define function to determine whether symbol being downloaded is crypto or stock
+        def _is_crypto_symbol(symbol):
+            return len(symbol) == 7 and "/" in symbol
 
+        # determine if symbol is crypto or stock
+        is_crypto = _is_crypto_symbol(symbol)
+
+        # pull alpaca client kwargs from kwargs passed
+        client_kwargs = dict()
+        # client kwargs may vary depending on whether ticker is stock or crypto
+        if is_crypto:
+            for k in get_func_kwargs(CryptoHistoricalDataClient):
+                if k in kwargs:
+                    client_kwargs[k] = kwargs.pop(k)
+        else:
+            for k in get_func_kwargs(StockHistoricalDataClient):
+                if k in kwargs:
+                    client_kwargs[k] = kwargs.pop(k)
+
+        # merge client kwargs passed with cfg kwargs
         client_kwargs = merge_dicts(alpaca_cfg, client_kwargs)
 
-        client = REST(**client_kwargs)
+        # instantiate client, using the appropriate client class depending on whether symbol is crypto or stock
+        if is_crypto:
+            client = CryptoHistoricalDataClient(**client_kwargs)
+        else:
+            client = StockHistoricalDataClient(**client_kwargs)
 
+        # create dictionary linking vbt timeframe string to alpaca TimeFrameUnit enum
         _timeframe_units = {'d': TimeFrameUnit.Day, 'h': TimeFrameUnit.Hour, 'm': TimeFrameUnit.Minute}
 
+        # ensure vbt timeframe passed is valid
         if len(timeframe) < 2:
             raise ValueError("invalid timeframe")
 
+        # separate vbt timeframe integer from vbt timeframe unit
         amount_str = timeframe[:-1]
         unit_str = timeframe[-1]
 
+        # ensure vbt timeframe integer and unit are valid
         if not amount_str.isnumeric() or unit_str not in _timeframe_units:
             raise ValueError("invalid timeframe")
 
+        # convert vbt timeframe integer to int
         amount = int(amount_str)
+        # convert vbt timeframe unit to alpaca TimeFrameUnit enum
         unit = _timeframe_units[unit_str]
 
+        # instantiate Alpaca TimeFrame object
         _timeframe = TimeFrame(amount, unit)
 
+        # convert start and end date/times to utc tz-aware iso-format strings
         start_ts = to_tzaware_datetime(start, tz=get_utc_tz()).isoformat()
         end_ts = to_tzaware_datetime(end, tz=get_utc_tz()).isoformat()
 
-        def _is_crypto_symbol(symbol):
-            return len(symbol) == 6 and "USD" in symbol
-
-        if _is_crypto_symbol(symbol):
-            df = client.get_crypto_bars(
-                symbol=symbol,
-                timeframe=_timeframe,
-                start=start_ts,
-                end=end_ts,
-                limit=limit,
-                exchanges=exchange
-            ).df
+        # create Alpaca Bars Request object depending on whether symbol is crypto or stock
+        if is_crypto:
+            request_obj = \
+                CryptoBarsRequest(symbol_or_symbols=symbol, timeframe=_timeframe, start=start_ts, end=end_ts,
+                                  limit=limit)
         else:
-            df = client.get_bars(
-                symbol=symbol,
-                timeframe=_timeframe,
-                start=start_ts,
-                end=end_ts,
-                adjustment=adjustment,
-                limit=limit
-            ).df
+            # create Alpaca adjustment enum depending on adjustment passed
+            adjust = Adjustment(adjustment)
+            request_obj = \
+                StockBarsRequest(symbol_or_symbols=symbol, timeframe=_timeframe, start=start_ts, end=end_ts,
+                                 limit=limit, feed=feed)
+
+        # download data
+        if is_crypto:
+            df = client.get_crypto_bars(request_params=request_obj)[symbol].df
+        else:
+            df = client.get_stock_bars(request_params=request_obj)[symbol].df
 
         # filter for OHLCV
         # remove extra columns
