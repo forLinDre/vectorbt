@@ -815,7 +815,7 @@ class AlpacaData(Data):
                         end: tp.DatetimeLike = 'now UTC',
                         adjustment: tp.Optional[str] = 'all',
                         limit: int = 500,
-                        feed: tp.Optional[str] = 'IEX',
+                        feed: tp.Optional[str] = 'iex',
                         **kwargs) -> tp.Frame:
         """Download the symbol.
 
