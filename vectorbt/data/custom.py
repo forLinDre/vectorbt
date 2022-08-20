@@ -924,11 +924,11 @@ class AlpacaData(Data):
                 StockBarsRequest(symbol_or_symbols=symbol, timeframe=_timeframe, start=start_ts, end=end_ts,
                                  limit=limit, feed=feed)
 
-        # download data
+        # download data and convert to dataframe
         if is_crypto:
-            df = client.get_crypto_bars(request_params=request_obj)[symbol].df
+            df = client.get_crypto_bars(request_params=request_obj).df
         else:
-            df = client.get_stock_bars(request_params=request_obj)[symbol].df
+            df = client.get_stock_bars(request_params=request_obj).df
 
         # filter for OHLCV
         # remove extra columns
