@@ -169,3 +169,8 @@ def interval_to_ms(interval: str) -> tp.Optional[int]:
         return int(interval[:-1]) * seconds_per_unit[interval[-1]] * 1000
     except (ValueError, KeyError):
         return None
+
+
+def make_clean_naive_dt(dt: datetime) -> datetime:
+    """Return a datetime, freshly instantiated with the datetime.datetime() method"""
+    return datetime(dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second, dt.microsecond)

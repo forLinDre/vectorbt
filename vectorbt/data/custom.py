@@ -847,6 +847,8 @@ class AlpacaData(Data):
         For defaults, see `data.alpaca` in `vectorbt._settings.settings`.
         """
         from vectorbt._settings import settings
+        from vectorbt.utils.datetime_ import make_clean_naive_dt
+
         from alpaca.data.historical import StockHistoricalDataClient, CryptoHistoricalDataClient
         from alpaca.data.requests import StockBarsRequest, CryptoBarsRequest
         from alpaca.data.timeframe import TimeFrame, TimeFrameUnit
@@ -906,9 +908,9 @@ class AlpacaData(Data):
         # instantiate Alpaca TimeFrame object
         _timeframe = TimeFrame(amount, unit)
 
-        # convert start and end date/times to utc tz-aware iso-format strings
-        start_ts = to_tzaware_datetime(start, tz=get_utc_tz()).isoformat()
-        end_ts = to_tzaware_datetime(end, tz=get_utc_tz()).isoformat()
+        # convert start and end date/times to utc tz-naive datetimes
+        start_ts = make_clean_naive_dt(to_tzaware_datetime(start, tz=get_utc_tz()))
+        end_ts = make_clean_naive_dt(to_tzaware_datetime(end, tz=get_utc_tz()))
 
         # create Alpaca Bars Request object depending on whether symbol is crypto or stock
         if is_crypto:
