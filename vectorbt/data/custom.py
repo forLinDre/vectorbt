@@ -930,6 +930,9 @@ class AlpacaData(Data):
         else:
             df = client.get_stock_bars(request_params=request_obj).df
 
+        # reset the index to be datetime index rather than multiindex containing symbol and datetime
+        df.reset_index(level='symbol', drop=True, inplace=True)
+
         # filter for OHLCV
         # remove extra columns
         df.drop(['trade_count', 'vwap'], axis=1, errors='ignore', inplace=True)
