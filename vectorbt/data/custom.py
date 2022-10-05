@@ -859,7 +859,7 @@ class AlpacaData(Data):
 
         # define function to determine whether symbol being downloaded is crypto or stock
         def _is_crypto_symbol(symbol):
-            return len(symbol) == 7 and "/" in symbol
+            return ('USD' in symbol) and "/" in symbol
 
         # determine if symbol is crypto or stock
         is_crypto = _is_crypto_symbol(symbol)
