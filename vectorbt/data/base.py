@@ -580,8 +580,11 @@ class Data(Wrapping, StatsBuilderMixin, PlotsBuilderMixin, metaclass=MetaData):
             # Select keyword arguments for this symbol
             _kwargs = cls.select_symbol_kwargs(s, kwargs)
 
-            # Download data for this symbol
-            data[s] = cls.download_symbol(s, **_kwargs)
+            # Download data for this symbol, if no data found for symbol, ignore
+            try:
+                data[s] = cls.download_symbol(s, **_kwargs)
+            except KeyError:
+                print(f'WARNING: data not found for {s} for requested timeframe, ignoring symbol')
 
         # Create new instance from data
         return cls.from_data(
